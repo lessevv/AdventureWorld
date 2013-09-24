@@ -187,6 +187,11 @@ public class CommandAdventure {
 			return;
 		}
 		
+		if(team.getLeader() != player) {
+			player.sendMessage("You are not the leader of your team.");
+			return;
+		}
+		
 		team.joinAdventure(null);
 	}
 	
