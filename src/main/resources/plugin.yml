@@ -1,0 +1,15 @@
+version: ${project.version}
+name: ${project.name}
+author: smith_61
+description: A plugin that manages the creation and playing of adventure type maps
+
+main: me.smith_61.adventure.bukkit.BukkitPlugin
+
+softdepend: [Multiverse]
+
+commands:
+    adventure:
+        aliases: [adv]
+        usage: /adventure [sub-command]
+        description: Root command for all adventure commands
+        permission-message: You do not have permission for this command
