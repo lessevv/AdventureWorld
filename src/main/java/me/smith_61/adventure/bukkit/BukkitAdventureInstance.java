@@ -5,9 +5,10 @@ import org.bukkit.World;
 
 import com.google.common.base.Preconditions;
 
+import me.smith_61.adventure.bukkit.tasks.BukkitExecutor;
+import me.smith_61.adventure.bukkit.tasks.DeleteFiles;
 import me.smith_61.adventure.common.AdventureInstance;
 import me.smith_61.adventure.common.AdventurePlayer;
-import me.smith_61.adventure.common.Utils;
 
 public class BukkitAdventureInstance extends AdventureInstance {
 
@@ -23,8 +24,8 @@ public class BukkitAdventureInstance extends AdventureInstance {
 	
 	@Override
 	protected void destroyInstance() {
-		Utils.deleteFileTree(this.getBukkitWorld().getWorldFolder(), true);
-		Bukkit.getServer().unloadWorld(this.getBukkitWorld(), false);
+		Bukkit.getServer().unloadWorld(this.clonedWorld, false);
+		BukkitExecutor.ASYNC.execute(new DeleteFiles(this.clonedWorld.getWorldFolder()));
 	}
 
 	@Override
