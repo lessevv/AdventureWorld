@@ -6,7 +6,8 @@ public abstract class AdventurePlayer {
 
 	private final String name;
 	
-	private AdventureTeam curTeam;
+	private final Object TEAM_LOCK = new Object();
+	private volatile AdventureTeam curTeam;
 	
 	protected AdventurePlayer(String name) {
 		this.name = Preconditions.checkNotNull(name, "name");
@@ -14,32 +15,46 @@ public abstract class AdventurePlayer {
 		this.curTeam = null;
 	}
 	
-	public String getName() {
+	public final String getName() {
 		return this.name;
 	}
 	
-	public void joinTeam(AdventureTeam team) {
-		if(team == null) {
-			if(this.curTeam != null) {
-				this.curTeam.removePlayer(this);
+	public final void joinTeam(AdventureTeam newTeam) {
+		synchronized(this.TEAM_LOCK) {
+			AdventureTeam curTeam = this.getCurrentTeam();
+			if(newTeam == curTeam) {
+				return;
 			}
-		}
-		else {
-			team.addPlayer(this);
+			
+			if(curTeam != null) {
+				curTeam.removePlayer(this);
+			}
+			if(newTeam != null) {
+				newTeam.addPlayer(this);
+				
+				if(newTeam.isDissolved()) {
+					newTeam = null;
+				}
+			}
+			
+			this.curTeam = newTeam;
 		}
 	}
 	
-	public AdventureTeam getCurrentTeam() {
+	public final AdventureTeam getCurrentTeam() {
 		return this.curTeam;
 	}
 	
 	public abstract void sendMessage(String message);
 	
-	protected abstract void joinAdventure(AdventureInstance adventure);
-	
-	protected abstract void leaveAdventure(AdventureInstance adventure);
-	
-	final void setCurrentTeam(AdventureTeam team) {
-		this.curTeam = team;
+	// Leaves the current team if this player is on the given team
+	final boolean leaveTeam(AdventureTeam curTeam) {
+		synchronized(this.TEAM_LOCK) {
+			if(this.curTeam == curTeam) {
+				this.joinTeam(null);
+				return true;
+			}
+			return false;
+		}
 	}
 }

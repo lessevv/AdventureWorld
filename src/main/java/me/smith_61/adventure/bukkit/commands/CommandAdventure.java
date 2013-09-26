@@ -169,7 +169,7 @@ public class CommandAdventure {
 			return;
 		}
 		
-		team.joinAdventure(adventure);
+		team.startAdventure(adventure);
 	}
 	
 	@Command(
@@ -192,7 +192,7 @@ public class CommandAdventure {
 			return;
 		}
 		
-		team.joinAdventure(null);
+		team.startAdventure(null);
 	}
 	
 	@Command(

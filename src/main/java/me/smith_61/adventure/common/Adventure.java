@@ -14,7 +14,7 @@ public abstract class Adventure {
 	
 	private final String name;
 	
-	private final Map<AdventureTeam, AdventureInstance> playingTeams;
+	private final Map<AdventureTeam, AdventureInstance> playingTeams; // Synchronized on self
 	
 	protected Adventure(String name) {
 		this.name = Preconditions.checkNotNull(name, "name");
@@ -27,87 +27,118 @@ public abstract class Adventure {
 	}
 	
 	public final AdventureTeam[] getAdventureTeams() {
-		return this.playingTeams.keySet().toArray(new AdventureTeam[0]);
+		synchronized(this.playingTeams) {
+			return this.playingTeams.keySet().toArray(new AdventureTeam[0]);
+		}
 	}
 	
-	public final void startAdventure(AdventureTeam team) {
-		if(team.getCurrentAdventure() != null) {
-			team.getCurrentAdventure().stopAdventure(team);
+	final AdventureInstance startAdventure(AdventureTeam team) {
+		synchronized(this.playingTeams) {
+			if(this.playingTeams.containsKey(team)) {
+				return this.playingTeams.get(team);
+			}
+			
+			PendingAdventureInstance instance = new PendingAdventureInstance();
+			instance.setAdventure(this).setTeam(team);
+			
+			this.playingTeams.put(team, instance);
+			
+			Futures.addCallback(this.createInstance(team), instance);
+			
+			return instance;
 		}
-		
-		AdventureLogger.logf(Level.INFO, "Team: %s joining adventure: %s", team.getName(), this.getName());
-		
-		PendingAdventureInstance instance = new PendingAdventureInstance();
-		instance.setAdventure(this).setTeam(team);
-		
-		Futures.addCallback(this.createInstance(team), instance);
-		
-		this.playingTeams.put(team, instance);
-		team.setCurrentAdventure(instance);
-	}
-	
-	public final void stopAdventure(AdventureTeam team) {
-		if(!this.playingTeams.containsKey(team)) {
-			return;
-		}
-		
-		AdventureLogger.logf(Level.INFO, "Team: %s leaving adventure: %s", team.getName(), this.getName());
-		
-		AdventureInstance instance = this.playingTeams.get(team);
-		
-		for(AdventurePlayer player : team.getTeammates()) {
-			player.leaveAdventure(instance);
-		}
-		instance.destroyInstance();
-		
-		this.playingTeams.remove(team);
-		team.setCurrentAdventure(null);
 	}
 	
 	protected abstract ListenableFuture<AdventureInstance> createInstance(AdventureTeam team);
 	
 	private class PendingAdventureInstance extends AdventureInstance implements FutureCallback<AdventureInstance> {
 		
+		private AdventureInstance instance;
+		
+		private boolean startAdventure = false;
 		private boolean destroyInstance = false;
 		
 		@Override
 		protected void destroyInstance() {
-			this.destroyInstance = true;
+			synchronized(this) {
+				if(this.destroyInstance) {
+					return;
+				}
+				
+				if(this.instance != null) {
+					this.instance.destroyInstance();
+				}
+				else {
+					this.destroyInstance = true;
+				}
+			}
+			
+			synchronized(Adventure.this.playingTeams) {
+				Adventure.this.playingTeams.remove(this.getTeam());
+			}
 		}
 
 		@Override
 		protected boolean isPlayerInAdventure(AdventurePlayer player) {
-			return false;
+			synchronized(this) {
+				if(this.instance != null) {
+					return this.instance.isPlayerInAdventure(player);
+				}
+				return false;
+			}
+		}
+		
+		@Override
+		public void startAdventure() {
+			synchronized(this) {
+				if(this.instance != null) {
+					this.instance.startAdventure();
+				}
+				else {
+					this.startAdventure = true;
+				}
+			}
 		}
 
 		public void onFailure(Throwable error) {
-			if(this.destroyInstance) {
-				return;
+			synchronized(this) {
+				if(this.destroyInstance) {
+					return;
+				}
 			}
 			AdventureTeam team = this.getTeam();
 			
-			AdventureLogger.logf(Level.SEVERE, error, "Error creating adventure instance for team: %s. Aborting", team.getName());
-			
-			for(AdventurePlayer player : team.getTeammates()) {
-				player.sendMessage("Error creating adventure. Aborting");
+			if(team.leaveAdventure(this)) {
+				AdventureLogger.logf(Level.SEVERE, error, "Error creating adventure instance for team: %s. Aborting", team.getName());
+				
+				for(AdventurePlayer player : team.getTeammates()) {
+					player.sendMessage("Error creating adventure. Aborting");
+				}
 			}
-			
-			Adventure.this.playingTeams.remove(team);
-			team.setCurrentAdventure(null);
 		}
 
 		public void onSuccess(AdventureInstance instance) {
 			instance.setAdventure(this.getAdventure()).setTeam(this.getTeam());
-			if(this.destroyInstance) {
-				instance.destroyInstance();
-				return;
+			synchronized(this) {
+				if(this.destroyInstance) {
+					instance.destroyInstance();
+					return;
+				}
+				
+				this.instance = instance;
+				
+				if(this.startAdventure) {
+					instance.startAdventure();
+				}
 			}
-			
-			Adventure.this.playingTeams.put(this.getTeam(), instance);
-			this.getTeam().setCurrentAdventure(instance);
-			
-			for(AdventurePlayer player : this.getTeam().getTeammates()) {
-				player.joinAdventure(instance);
+		}
+
+		@Override
+		protected void leaveAdventure(AdventurePlayer player) {
+			synchronized(this) {
+				if(this.instance != null) {
+					this.instance.leaveAdventure(player);
+				}
 			}
 		}
 		

@@ -86,7 +86,7 @@ public class BukkitPlugin extends JavaPlugin {
 		}
 		
 		for(AdventureTeam team : this.adventureManager.getAdventureTeams()) {
-			team.removePlayer(team.getLeader());
+			team.dissolveTeam();
 		}
 		
 		for(AdventurePlayer player : this.adventureManager.getAdventurePlayers()) {

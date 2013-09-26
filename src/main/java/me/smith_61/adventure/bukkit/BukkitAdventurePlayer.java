@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.google.common.base.Preconditions;
 
+import me.smith_61.adventure.bukkit.tasks.BukkitExecutor;
 import me.smith_61.adventure.common.AdventureInstance;
 import me.smith_61.adventure.common.AdventurePlayer;
 
@@ -37,35 +38,49 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 		this.getBukkitPlayer().sendMessage(ChatColor.GOLD + message);
 	}
 
-	@Override
-	protected void joinAdventure(AdventureInstance adventure) {
-		this.getBukkitPlayer().teleport(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation());
-		
-		this.inventoryContents = this.getBukkitPlayer().getInventory().getContents();
-		this.armorContents = this.getBukkitPlayer().getInventory().getArmorContents();
-		this.getBukkitPlayer().getInventory().clear();
-		
-		this.gameMode = this.getBukkitPlayer().getGameMode();
-		this.getBukkitPlayer().setGameMode(GameMode.ADVENTURE);
-		
-		this.bedSpawnLocation = this.getBukkitPlayer().getBedSpawnLocation();
-		this.getBukkitPlayer().setBedSpawnLocation(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation(), true);
+	protected void joinAdventure(final AdventureInstance adventure) {
+		BukkitExecutor.SYNC.execute(new Runnable() {
+			
+			@Override
+			public void run() {
+				BukkitAdventurePlayer player = BukkitAdventurePlayer.this;
+				
+				player.getBukkitPlayer().teleport(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation());
+				
+				player.inventoryContents = player.getBukkitPlayer().getInventory().getContents();
+				player.armorContents = player.getBukkitPlayer().getInventory().getArmorContents();
+				player.getBukkitPlayer().getInventory().clear();
+				
+				player.gameMode = player.getBukkitPlayer().getGameMode();
+				player.getBukkitPlayer().setGameMode(GameMode.ADVENTURE);
+				
+				player.bedSpawnLocation = player.getBukkitPlayer().getBedSpawnLocation();
+				player.getBukkitPlayer().setBedSpawnLocation(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation(), true);
+			}
+		});
 	}
 
-	@Override
-	protected void leaveAdventure(AdventureInstance adventure) {
-		this.getBukkitPlayer().teleport(BukkitPlugin.getInstance().getLobbyWorld().getSpawnLocation());
-		
-		this.getBukkitPlayer().getInventory().setContents(this.inventoryContents);
-		this.getBukkitPlayer().getInventory().setArmorContents(this.armorContents);
-		this.inventoryContents = null;
-		this.armorContents = null;
-		
-		this.getBukkitPlayer().setGameMode(this.gameMode);
-		this.gameMode = null;
-		
-		this.getBukkitPlayer().setBedSpawnLocation(this.bedSpawnLocation, true);
-		this.bedSpawnLocation = null;
+	protected void leaveAdventure(final AdventureInstance adventure) {
+		BukkitExecutor.SYNC.execute(new Runnable() {
+			
+			@Override
+			public void run() {
+				BukkitAdventurePlayer player = BukkitAdventurePlayer.this;
+				
+				player.getBukkitPlayer().teleport(BukkitPlugin.getInstance().getLobbyWorld().getSpawnLocation());
+				
+				player.getBukkitPlayer().getInventory().setContents(player.inventoryContents);
+				player.getBukkitPlayer().getInventory().setArmorContents(player.armorContents);
+				player.inventoryContents = null;
+				player.armorContents = null;
+				
+				player.getBukkitPlayer().setGameMode(player.gameMode);
+				player.gameMode = null;
+				
+				player.getBukkitPlayer().setBedSpawnLocation(player.bedSpawnLocation, true);
+				player.bedSpawnLocation = null;
+			}
+		});
 	}
 
 }

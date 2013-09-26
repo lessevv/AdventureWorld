@@ -11,9 +11,11 @@ public class AdventureTeam {
 	private final String name;
 	private final AdventurePlayer leader;
 	
-	private final List<AdventurePlayer> teammates;
+	private final List<AdventurePlayer> teammates; // Edits and gets synchronized on this field
+	private volatile boolean isDissolved; // Edits synchronized on field "teammates"
 	
-	private AdventureInstance curAdventure;
+	private final Object ADV_LOCK = new Object();
+	private AdventureInstance adventureInstance; // Synchronized on field "ADV_LOCK"
 	
 	AdventureTeam(AdventureManager manager, String name, AdventurePlayer leader) {
 		this.manager = Preconditions.checkNotNull(manager, "manager");
@@ -21,9 +23,9 @@ public class AdventureTeam {
 		this.leader = Preconditions.checkNotNull(leader, "leader");
 		
 		this.teammates = new ArrayList<AdventurePlayer>();
-		this.addPlayer(leader);
+		leader.joinTeam(this);
 		
-		this.curAdventure = null;
+		this.adventureInstance = null;
 	}
 	
 	public final String getName() {
@@ -35,69 +37,108 @@ public class AdventureTeam {
 	}
 	
 	public final AdventurePlayer[] getTeammates() {
-		return this.teammates.toArray(new AdventurePlayer[0]);
+		synchronized(this.teammates) {
+			return this.teammates.toArray(new AdventurePlayer[0]);
+		}
 	}
 	
-	public final void addPlayer(AdventurePlayer player) {
-		if(this.teammates.contains(player)) {
+	public final void startAdventure(Adventure newAdventure) {
+		if(this.isDissolved() && newAdventure != null) {
 			return;
 		}
-		
-		if(player.getCurrentTeam() != null) {
-			player.getCurrentTeam().removePlayer(player);
-		}
-		
-		this.teammates.add(player);
-		player.setCurrentTeam(this);
-		
-		player.sendMessage("Joined team: " + this.getName());
-	}
-	
-	public final void removePlayer(AdventurePlayer player) {
-		if(!this.teammates.contains(player)) {
-			return;
-		}
-		
-		if(this.curAdventure != null && this.curAdventure.isPlayerInAdventure(player)) {
-			player.leaveAdventure(this.curAdventure);
-		}
-		
-		this.teammates.remove(player);
-		player.setCurrentTeam(null);
-		
-		player.sendMessage("Left team: " + this.getName());
-		
-		if(player == this.leader) {
-			this.joinAdventure(null);
-			
-			for(AdventurePlayer other : this.getTeammates()) {
-				this.removePlayer(other);
+		synchronized(this.ADV_LOCK) {
+			Adventure curAdventure = this.getCurrentAdventure();
+			if(curAdventure == newAdventure) {
+				return;
 			}
 			
-			this.manager.removeTeam(this);
-		}
-	}
-	
-	public final void joinAdventure(Adventure adventure) {
-		if(adventure == null) {
-			if(this.curAdventure != null) {
-				this.curAdventure.getAdventure().stopAdventure(this);
+			if(this.adventureInstance != null) {
+				this.adventureInstance.destroyInstance();
+				this.adventureInstance = null;
 			}
-			this.curAdventure = null;
-		}
-		else {
-			adventure.startAdventure(this);
+			if(newAdventure != null) {
+				this.adventureInstance = newAdventure.startAdventure(this);
+				this.adventureInstance.startAdventure();
+			}
 		}
 	}
 	
 	public final Adventure getCurrentAdventure() {
-		if(this.curAdventure != null) {
-			return this.curAdventure.getAdventure();
+		synchronized(this.ADV_LOCK) {
+			if(this.adventureInstance != null) {
+				return this.adventureInstance.getAdventure();
+			}
+			return null;
 		}
-		return null;
 	}
 	
-	final void setCurrentAdventure(AdventureInstance adventure) {
-		this.curAdventure = adventure;
+	public final void dissolveTeam() {
+		AdventurePlayer[] players;
+		
+		synchronized(this.teammates) {
+			if(this.isDissolved()) {
+				return;
+			}
+			this.isDissolved = true;
+			
+			players = this.getTeammates();
+			this.teammates.clear();
+			
+			this.manager.removeTeam(this);
+		}
+		
+		this.startAdventure(null);
+		
+		for(AdventurePlayer player : players) {
+			if(player.leaveTeam(this)) {
+				player.sendMessage("Left team: " + this.getName());
+			}
+		}
+	}
+	
+	public final boolean isDissolved() {
+		return this.isDissolved;
+	}
+	
+	final void addPlayer(AdventurePlayer player) {
+		synchronized(this.teammates) {
+			if(this.isDissolved() || this.teammates.contains(player)) {
+				return;
+			}
+			
+			this.teammates.add(player);
+			player.sendMessage("Joined team: " + this.getName());
+		}
+	}
+	
+	final void removePlayer(AdventurePlayer player) {
+		if(player == this.leader) {
+			this.dissolveTeam();
+			return;
+		}
+		synchronized(this.teammates) {
+			if(this.teammates.remove(player)) {
+				player.sendMessage("Left team: " + this.getName());
+			}
+			else {
+				return;
+			}
+		}
+		
+		synchronized(this.ADV_LOCK) {
+			if(this.adventureInstance.isPlayerInAdventure(player)) {
+				
+			}
+		}
+	}
+	
+	final boolean leaveAdventure(AdventureInstance instance) {
+		synchronized(this.ADV_LOCK) {
+			if(this.adventureInstance == instance) {
+				this.startAdventure(null);
+				return true;
+			}
+			return false;
+		}
 	}
 }

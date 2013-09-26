@@ -1,5 +1,8 @@
 package me.smith_61.adventure.bukkit;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
@@ -14,8 +17,12 @@ public class BukkitAdventureInstance extends AdventureInstance {
 
 	private final World clonedWorld;
 	
+	private final Set<AdventurePlayer> players;
+	
 	public BukkitAdventureInstance(World clonedWorld) {
 		this.clonedWorld = Preconditions.checkNotNull(clonedWorld, "clonedWorld");
+		
+		this.players = new HashSet<AdventurePlayer>();
 	}
 	
 	public World getBukkitWorld() {
@@ -24,16 +31,47 @@ public class BukkitAdventureInstance extends AdventureInstance {
 	
 	@Override
 	protected void destroyInstance() {
-		Bukkit.getServer().unloadWorld(this.clonedWorld, false);
-		BukkitExecutor.ASYNC.execute(new DeleteFiles(this.clonedWorld.getWorldFolder()));
+		for(AdventurePlayer player : this.getTeam().getTeammates()) {
+			if(player instanceof BukkitAdventurePlayer) {
+				((BukkitAdventurePlayer)player).leaveAdventure(this);
+			}
+		}
+		this.players.clear();
+		
+		BukkitExecutor.SYNC.execute(new Runnable() {
+			
+			@Override
+			public void run() {
+				World world = BukkitAdventureInstance.this.clonedWorld;
+				
+				Bukkit.getServer().unloadWorld(world, false);
+				BukkitExecutor.ASYNC.execute(new DeleteFiles(world.getWorldFolder()));
+			}
+			
+		});
 	}
 
 	@Override
 	protected boolean isPlayerInAdventure(AdventurePlayer player) {
-		if(player instanceof BukkitAdventurePlayer) {
-			return ((BukkitAdventurePlayer)player).getBukkitPlayer().getWorld() == this.clonedWorld;
+		return this.players.contains(player);
+	}
+
+	@Override
+	protected void startAdventure() {
+		for(AdventurePlayer player : this.getTeam().getTeammates()) {
+			if(player instanceof BukkitAdventurePlayer) {
+				((BukkitAdventurePlayer)player).joinAdventure(this);
+				
+				this.players.add(player);
+			}
 		}
-		return false;
+	}
+
+	@Override
+	protected void leaveAdventure(AdventurePlayer player) {
+		if(player instanceof BukkitAdventurePlayer && this.players.contains(player)) {
+			((BukkitAdventurePlayer) player).leaveAdventure(this);
+		}
 	}
 
 }

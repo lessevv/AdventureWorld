@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>me.smith_61</groupId>
   <artifactId>AdventurePlugin</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.2</version>
   
   <repositories>
   	<repository>

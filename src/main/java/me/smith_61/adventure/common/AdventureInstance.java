@@ -13,6 +13,10 @@ public abstract class AdventureInstance {
 		return this.adventure;
 	}
 	
+	protected abstract void startAdventure();
+	
+	protected abstract void leaveAdventure(AdventurePlayer player);
+	
 	protected abstract boolean isPlayerInAdventure(AdventurePlayer player);
 	
 	protected abstract void destroyInstance();
