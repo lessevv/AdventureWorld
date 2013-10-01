@@ -23,6 +23,8 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 	
 	private Location bedSpawnLocation;
 	
+	private BukkitAdventureInstance adventureInstance;
+	
 	public BukkitAdventurePlayer(Player bukkitPlayer) {
 		super(Preconditions.checkNotNull(bukkitPlayer).getName());
 		
@@ -45,7 +47,7 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 			public void run() {
 				BukkitAdventurePlayer player = BukkitAdventurePlayer.this;
 				
-				player.getBukkitPlayer().teleport(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation());
+				player.getBukkitPlayer().teleport(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation());
 				
 				player.inventoryContents = player.getBukkitPlayer().getInventory().getContents();
 				player.armorContents = player.getBukkitPlayer().getInventory().getArmorContents();
@@ -55,7 +57,9 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 				player.getBukkitPlayer().setGameMode(GameMode.ADVENTURE);
 				
 				player.bedSpawnLocation = player.getBukkitPlayer().getBedSpawnLocation();
-				player.getBukkitPlayer().setBedSpawnLocation(((BukkitAdventureInstance)adventure).getBukkitWorld().getSpawnLocation(), true);
+				player.getBukkitPlayer().setBedSpawnLocation(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation(), true);
+				
+				player.adventureInstance = (BukkitAdventureInstance)adventure;
 			}
 		});
 	}
@@ -79,8 +83,13 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 				
 				player.getBukkitPlayer().setBedSpawnLocation(player.bedSpawnLocation, true);
 				player.bedSpawnLocation = null;
+				
+				player.adventureInstance = null;
 			}
 		});
 	}
 
+	BukkitAdventureInstance getAdventureInstance() {
+		return this.adventureInstance;
+	}
 }

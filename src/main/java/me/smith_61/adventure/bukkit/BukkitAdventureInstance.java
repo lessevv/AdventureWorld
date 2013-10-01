@@ -1,10 +1,12 @@
 package me.smith_61.adventure.bukkit;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.World.Environment;
 
 import com.google.common.base.Preconditions;
 
@@ -15,18 +17,24 @@ import me.smith_61.adventure.common.AdventurePlayer;
 
 public class BukkitAdventureInstance extends AdventureInstance {
 
-	private final World clonedWorld;
+	private final World adventureWorld;
+	private final Map<Environment, World> worlds;
 	
 	private final Set<AdventurePlayer> players;
 	
-	public BukkitAdventureInstance(World clonedWorld) {
-		this.clonedWorld = Preconditions.checkNotNull(clonedWorld, "clonedWorld");
+	public BukkitAdventureInstance(World entryWorld, Map<Environment, World> worlds) {
+		this.adventureWorld = Preconditions.checkNotNull(entryWorld, "entryWorld");
+		this.worlds = Preconditions.checkNotNull(worlds, "worlds");
 		
 		this.players = new HashSet<AdventurePlayer>();
 	}
 	
-	public World getBukkitWorld() {
-		return this.clonedWorld;
+	public World getEntryWorld() {
+		return this.adventureWorld;
+	}
+	
+	public World getWorld(Environment environment) {
+		return this.worlds.get(environment);
 	}
 	
 	@Override
@@ -42,10 +50,10 @@ public class BukkitAdventureInstance extends AdventureInstance {
 			
 			@Override
 			public void run() {
-				World world = BukkitAdventureInstance.this.clonedWorld;
-				
-				Bukkit.getServer().unloadWorld(world, false);
-				BukkitExecutor.ASYNC.execute(new DeleteFiles(world.getWorldFolder()));
+				for(World world : BukkitAdventureInstance.this.worlds.values()) {
+					Bukkit.getServer().unloadWorld(world, false);
+					BukkitExecutor.ASYNC.execute(new DeleteFiles(world.getWorldFolder()));
+				}
 			}
 			
 		});
@@ -73,5 +81,4 @@ public class BukkitAdventureInstance extends AdventureInstance {
 			((BukkitAdventurePlayer) player).leaveAdventure(this);
 		}
 	}
-
 }

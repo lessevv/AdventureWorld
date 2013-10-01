@@ -1,5 +1,6 @@
 package me.smith_61.adventure.bukkit;
 
+import java.io.File;
 import java.util.logging.Level;
 
 import me.smith_61.adventure.bukkit.commands.CommandAdventure;
@@ -11,8 +12,6 @@ import me.smith_61.adventure.common.AdventureTeam;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import se.ranzdo.bukkit.methodcommand.CommandHandler;
@@ -38,6 +37,10 @@ public class BukkitPlugin extends JavaPlugin {
 		return this.lobbyWorld;
 	}
 	
+	public File getWorldSaveDir() {
+		return this.getLobbyWorld().getWorldFolder().getParentFile();
+	}
+	
 	@Override
 	public void onLoad() {
 		AdventureLogger.setLogger(this.getLogger());
@@ -54,27 +57,33 @@ public class BukkitPlugin extends JavaPlugin {
 			this.lobbyWorld = Bukkit.getWorlds().get(0);
 		}
 		
-		ConfigurationSection adventureSection = this.getConfig().getConfigurationSection("adventures");
-		for(String name : adventureSection.getKeys(false)) {
-			ConfigurationSection section = adventureSection.getConfigurationSection(name);
-			
-			String worldName = section.getString("world");
-			World world = null;
-			if(worldName == null || (world = Bukkit.getWorld(worldName)) == null) {
-				AdventureLogger.logf(Level.WARNING, "Invalid world name: %s", worldName);
-				continue;
-			}
-			
-			this.adventureManager.addAdventure(new BukkitAdventure(name, world));
+		File adventuresDir = new File(this.getDataFolder(), "adventures");
+		if(!adventuresDir.exists()) {
+			adventuresDir.mkdirs();
 		}
 		
-		this.getServer().getPluginManager().registerEvents(new Listener(), this);
-		for(Player player : this.getServer().getOnlinePlayers()) {
-			this.adventureManager.addAdventurePlayer(new BukkitAdventurePlayer(player));
+		if(adventuresDir.isDirectory()) {
+			for(File adventureFile : adventuresDir.listFiles()) {
+				if(adventureFile.isFile() && adventureFile.getName().endsWith(".zip")) {
+					try {
+						Adventure adventure = BukkitAdventure.loadAdventure(adventureFile);
+						
+						this.adventureManager.addAdventure(adventure);
+					}
+					catch(IllegalArgumentException iae) {
+						AdventureLogger.log(Level.SEVERE, "Adventure already exists.", iae);
+					}
+					catch(AdventureLoadException ale) {
+						AdventureLogger.logf(Level.SEVERE, ale, "Error reading in adventure from file: %s", adventureFile.getName());
+					}
+				}
+			}
 		}
 		
 		this.commandHandler = new CommandHandler(this);
 		this.commandHandler.registerCommands(new CommandAdventure());
+		
+		Bukkit.getPluginManager().registerEvents(new Listener(), this);
 	}
 	
 	@Override
