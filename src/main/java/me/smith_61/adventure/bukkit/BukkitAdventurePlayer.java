@@ -4,6 +4,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
 import org.bukkit.inventory.ItemStack;
 
 import com.google.common.base.Preconditions;
@@ -46,18 +47,19 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 			@Override
 			public void run() {
 				BukkitAdventurePlayer player = BukkitAdventurePlayer.this;
+				Player bukkitPlayer = player.getBukkitPlayer();
 				
-				player.getBukkitPlayer().teleport(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation());
+				bukkitPlayer.teleport(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation(), TeleportCause.PLUGIN);
 				
-				player.inventoryContents = player.getBukkitPlayer().getInventory().getContents();
-				player.armorContents = player.getBukkitPlayer().getInventory().getArmorContents();
+				player.inventoryContents = bukkitPlayer.getInventory().getContents();
+				player.armorContents = bukkitPlayer.getInventory().getArmorContents();
 				player.getBukkitPlayer().getInventory().clear();
 				
-				player.gameMode = player.getBukkitPlayer().getGameMode();
-				player.getBukkitPlayer().setGameMode(GameMode.ADVENTURE);
+				player.gameMode = bukkitPlayer.getGameMode();
+				bukkitPlayer.setGameMode(GameMode.ADVENTURE);
 				
-				player.bedSpawnLocation = player.getBukkitPlayer().getBedSpawnLocation();
-				player.getBukkitPlayer().setBedSpawnLocation(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation(), true);
+				player.bedSpawnLocation = bukkitPlayer.getBedSpawnLocation();
+				bukkitPlayer.setBedSpawnLocation(((BukkitAdventureInstance)adventure).getEntryWorld().getSpawnLocation(), true);
 				
 				player.adventureInstance = (BukkitAdventureInstance)adventure;
 			}
@@ -70,21 +72,24 @@ public class BukkitAdventurePlayer extends AdventurePlayer {
 			@Override
 			public void run() {
 				BukkitAdventurePlayer player = BukkitAdventurePlayer.this;
+				Player bukkitPlayer = player.getBukkitPlayer();
 				
-				player.getBukkitPlayer().teleport(BukkitPlugin.getInstance().getLobbyWorld().getSpawnLocation());
+				bukkitPlayer.teleport(BukkitPlugin.getInstance().getLobbyWorld().getSpawnLocation(), TeleportCause.PLUGIN);
 				
-				player.getBukkitPlayer().getInventory().setContents(player.inventoryContents);
-				player.getBukkitPlayer().getInventory().setArmorContents(player.armorContents);
+				bukkitPlayer.getInventory().setContents(player.inventoryContents);
+				bukkitPlayer.getInventory().setArmorContents(player.armorContents);
 				player.inventoryContents = null;
 				player.armorContents = null;
 				
-				player.getBukkitPlayer().setGameMode(player.gameMode);
+				bukkitPlayer.setGameMode(player.gameMode);
 				player.gameMode = null;
 				
-				player.getBukkitPlayer().setBedSpawnLocation(player.bedSpawnLocation, true);
+				bukkitPlayer.setBedSpawnLocation(player.bedSpawnLocation, true);
 				player.bedSpawnLocation = null;
 				
 				player.adventureInstance = null;
+				
+				bukkitPlayer.saveData();
 			}
 		});
 	}

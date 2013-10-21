@@ -26,7 +26,7 @@ public abstract class BukkitExecutor implements Executor {
 		@Override
 		public void execute(Runnable task) {
 			BukkitPlugin plugin = BukkitPlugin.getInstance();
-			if(plugin == null || !plugin.isEnabled()) {
+			if(plugin.isMainThread() || plugin == null || !plugin.isEnabled()) {
 				task.run();
 			}
 			else {

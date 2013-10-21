@@ -3,7 +3,6 @@ package me.smith_61.adventure.bukkit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,16 +16,15 @@ import javax.annotation.Nullable;
 import org.bukkit.World;
 import org.bukkit.World.Environment;
 import org.bukkit.WorldCreator;
+import org.bukkit.configuration.Configuration;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import com.google.common.base.Function;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.gson.Gson;
-import com.google.gson.stream.JsonReader;
 
-import me.smith_61.adventure.bukkit.json.AdventureDescription;
-import me.smith_61.adventure.bukkit.json.WorldDescription;
 import me.smith_61.adventure.bukkit.tasks.BukkitExecutor;
 import me.smith_61.adventure.bukkit.tasks.ExtractWorld;
 import me.smith_61.adventure.bukkit.tasks.LoadWorld;
@@ -78,31 +76,65 @@ public class BukkitAdventure extends Adventure {
 		try {
 			ZipFile zipFile = new ZipFile(file);
 			
-			ZipEntry jsonEntry = zipFile.getEntry("adventure.json");
-			if(jsonEntry == null || jsonEntry.isDirectory()) {
-				throw new AdventureLoadException(file.getName() + " is missing required adventure.json file");
+			ZipEntry adventureDescFile = zipFile.getEntry("adventure.yaml");
+			if(adventureDescFile == null || adventureDescFile.isDirectory()) {
+				throw new AdventureLoadException(file.getName() + " is missing required adventure.yaml file");
 			}
 			
 			InputStream in = null;
 			try {
-				in = zipFile.getInputStream(jsonEntry);
+				in = zipFile.getInputStream(adventureDescFile);
+				Configuration adventureDesc = YamlConfiguration.loadConfiguration(in);
 				
-				JsonReader reader = new JsonReader(new InputStreamReader(in));
-				
-				Gson gson = new Gson();
-				
-				AdventureDescription description = gson.fromJson(reader, AdventureDescription.class);
-				String reason = description.validate();
-				if(reason != null) {
-					throw new AdventureLoadException("Invalid adventure description file. Missing field " + reason);
+				String name = adventureDesc.getString("name");
+				if(name == null || name.isEmpty()) {
+					throw new AdventureLoadException("Missing required field: 'name'");
 				}
 				
+				// Load worlds
+				ConfigurationSection worldsDesc = adventureDesc.getConfigurationSection("worlds");
+				if(worldsDesc == null) {
+					throw new AdventureLoadException("Missing required field: 'worlds'");
+				}
+				
+
 				Map<Environment, BukkitAdventureWorld> worlds = new HashMap<Environment, BukkitAdventureWorld>();
-				for(Entry<Environment, WorldDescription> entry : description.getWorlds().entrySet()) {
-					worlds.put(entry.getKey(), BukkitAdventureWorld.fromDescription(entry.getValue(), zipFile));
+				for(String key : worldsDesc.getKeys(false)) {
+					if(key.equals("entry")) {
+						continue;
+					}
+					
+					Environment env = BukkitAdventure.getEnvironment(key);
+					if(env == null) {
+						throw new AdventureLoadException("Invalid environment type: '" + key + "'");
+					}
+					
+					Object val = worldsDesc.get(key);
+					if(!(val instanceof ConfigurationSection)) {
+						throw new AdventureLoadException("Invalid yaml datatype for key: '" + key + "'. Expected: '" + ConfigurationSection.class + "'. Got: '" + val.getClass() + "'");
+					}
+					
+					if(worlds.containsKey(env)) {
+						throw new AdventureLoadException("World already specified for environment: '" + env.name() + "'");
+					}
+					else {
+						worlds.put(env, BukkitAdventureWorld.fromDescription((ConfigurationSection)val, zipFile));
+					}
+				}
+				if(worlds.size() == 0) {
+					throw new AdventureLoadException("No world descriptions found in worlds section.");
 				}
 				
-				return new BukkitAdventure(description.getName(), description.getEntry(), worlds);
+				String entryEnvName = worldsDesc.getString("entry", Environment.NORMAL.name());
+				Environment entryEnv = BukkitAdventure.getEnvironment(entryEnvName);
+				if(entryEnv == null) {
+					throw new AdventureLoadException("Invalid entry environment type: '" + entryEnvName + "'");
+				}
+				if(!worlds.containsKey(entryEnv)) {
+					throw new AdventureLoadException("Missing world for entry environment: '" + entryEnv.name() + "'");
+				}
+				
+				return new BukkitAdventure(name, entryEnv, worlds);
 			}
 			finally {
 				if(in != null) {
@@ -112,6 +144,15 @@ public class BukkitAdventure extends Adventure {
 		}
 		catch(IOException ioe) {
 			throw new AdventureLoadException("Error loading adventure from file: " + file.getName(), ioe);
+		}
+	}
+	
+	private static Environment getEnvironment(String name) {
+		try {
+			return Environment.valueOf(name.toUpperCase());
+		}
+		catch(IllegalArgumentException iae) {
+			return null;
 		}
 	}
 	

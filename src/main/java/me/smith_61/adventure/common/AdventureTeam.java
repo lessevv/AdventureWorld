@@ -2,6 +2,7 @@ package me.smith_61.adventure.common;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 import com.google.common.base.Preconditions;
 
@@ -64,6 +65,9 @@ public class AdventureTeam {
 	}
 	
 	public final Adventure getCurrentAdventure() {
+		if(this.isDissolved()) {
+			return null;
+		}
 		synchronized(this.ADV_LOCK) {
 			if(this.adventureInstance != null) {
 				return this.adventureInstance.getAdventure();
@@ -82,10 +86,10 @@ public class AdventureTeam {
 			this.isDissolved = true;
 			
 			players = this.getTeammates();
-			this.teammates.clear();
 			
 			this.manager.removeTeam(this);
 		}
+		AdventureLogger.logf(Level.INFO, "Disolved team: %s", this.getName());
 		
 		this.startAdventure(null);
 		
@@ -112,7 +116,7 @@ public class AdventureTeam {
 	}
 	
 	final void removePlayer(AdventurePlayer player) {
-		if(player == this.leader) {
+		if(player == this.leader && !this.isDissolved()) {
 			this.dissolveTeam();
 			return;
 		}
@@ -124,10 +128,11 @@ public class AdventureTeam {
 				return;
 			}
 		}
+		player.leaveTeam(this);
 		
 		synchronized(this.ADV_LOCK) {
 			if(this.adventureInstance.isPlayerInAdventure(player)) {
-				
+				this.adventureInstance.leaveAdventure(player);
 			}
 		}
 	}

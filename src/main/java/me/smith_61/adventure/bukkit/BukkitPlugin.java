@@ -28,6 +28,7 @@ public class BukkitPlugin extends JavaPlugin {
 	
 	private AdventureManager adventureManager;
 	private World lobbyWorld;
+	private Thread mainThread;
 	
 	public AdventureManager getAdventureManager() {
 		return this.adventureManager;
@@ -41,6 +42,10 @@ public class BukkitPlugin extends JavaPlugin {
 		return this.getLobbyWorld().getWorldFolder().getParentFile();
 	}
 	
+	public boolean isMainThread() {
+		return this.mainThread == Thread.currentThread();
+	}
+	
 	@Override
 	public void onLoad() {
 		AdventureLogger.setLogger(this.getLogger());
@@ -49,6 +54,8 @@ public class BukkitPlugin extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		BukkitPlugin.INSTANCE = this;
+		
+		this.mainThread = Thread.currentThread();
 		
 		this.adventureManager = new AdventureManager();
 		
@@ -74,10 +81,18 @@ public class BukkitPlugin extends JavaPlugin {
 						AdventureLogger.log(Level.SEVERE, "Adventure already exists.", iae);
 					}
 					catch(AdventureLoadException ale) {
-						AdventureLogger.logf(Level.SEVERE, ale, "Error reading in adventure from file: %s", adventureFile.getName());
+						if(ale.getCause() != null) {
+							AdventureLogger.logf(Level.SEVERE, "Error reading in adventure from file: %s", adventureFile.getName());
+						}
+						else {
+							AdventureLogger.logf(Level.SEVERE, "Error reading in adventure from file: %s. Reason: %s", adventureFile.getName(), ale.getMessage());
+						}
 					}
 				}
 			}
+		}
+		else {
+			AdventureLogger.logf(Level.SEVERE, "'%s' is not a directory.", adventuresDir);
 		}
 		
 		this.commandHandler = new CommandHandler(this);
@@ -104,6 +119,7 @@ public class BukkitPlugin extends JavaPlugin {
 		
 		this.lobbyWorld = null;
 		this.adventureManager = null;
+		this.mainThread = null;
 		BukkitPlugin.INSTANCE = null;
 	}
 	

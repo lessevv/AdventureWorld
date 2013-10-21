@@ -5,7 +5,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
-import me.smith_61.adventure.bukkit.json.WorldDescription;
+import org.bukkit.configuration.ConfigurationSection;
 
 public class BukkitAdventureWorld {
 
@@ -29,14 +29,17 @@ public class BukkitAdventureWorld {
 		return new ZipInputStream(this.zipFile.getInputStream(this.entry));
 	}
 	
-	public static BukkitAdventureWorld fromDescription(WorldDescription description, ZipFile zipFile) throws AdventureLoadException {
-		String name = description.getName();
+	public static BukkitAdventureWorld fromDescription(ConfigurationSection section, ZipFile zipFile) throws AdventureLoadException {
+		String name = section.getString("name");
+		if(name == null || name.isEmpty()) {
+			throw new AdventureLoadException("Missing required field: 'name' in world description for environment: '" + section.getName() + "'");
+		}
 		
 		ZipEntry entry = zipFile.getEntry("maps/" + name + ".zip");
 		if(entry == null) {
 			throw new AdventureLoadException("Missing world zip file: maps/" + name + ".zip");
 		}
 		
-		return new BukkitAdventureWorld(description.getName(), zipFile, entry);
+		return new BukkitAdventureWorld(name, zipFile, entry);
 	}
 }
