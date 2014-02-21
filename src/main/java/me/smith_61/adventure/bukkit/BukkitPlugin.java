@@ -1,7 +1,11 @@
 package me.smith_61.adventure.bukkit;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import me.smith_61.adventure.bukkit.commands.CommandAdventure;
 import me.smith_61.adventure.common.Adventure;
@@ -48,7 +52,17 @@ public class BukkitPlugin extends JavaPlugin {
 	
 	@Override
 	public void onLoad() {
-		AdventureLogger.setLogger(this.getLogger());
+		Logger logger = this.getLogger();
+		AdventureLogger.setLogger(logger);
+		
+		try {
+			FileHandler handler = new FileHandler(this.getDataFolder() + "/AdventurePlugin.log");
+			handler.setFormatter(new SimpleFormatter());
+			logger.addHandler(handler);
+		}
+		catch(IOException ioe) {
+			AdventureLogger.log(Level.SEVERE, "Error setting up logger output file.", ioe);
+		}
 	}
 	
 	@Override
