@@ -1,0 +1,37 @@
+name: Release Flow
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'ci'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+      - name: Maven Package
+        run: mvn -B clean package -DskipTests
+      - name: Maven Verify
+        run: mvn -B clean verify -DskipTests
+
+  artifact:
+    name: Publish
+    runs-on: ubuntu-22.04
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 21
+      - name: Publish Artifact on GitHub Packages
+        run: mvn -B -e -X clean deploy -DskipTests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
